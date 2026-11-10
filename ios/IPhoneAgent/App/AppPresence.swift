@@ -271,6 +271,7 @@ extension AppModel {
                                : "startup: the board has had no AirPlay frame since before the cursor moved; Screen Mirroring stalled")
             }
             let link = Recovery.Link(connected: board.connected, sta: board.status?.sta, ap: board.status?.ap,
+                                     net: board.status?.net,
                                      frameAt: hasFrame() ? now() : 0, stalled: stalled)
             var waiting = false, stage: Recovery.Stage?
             switch recovery.next(link, at: now()) {
