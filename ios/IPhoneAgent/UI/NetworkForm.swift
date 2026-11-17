@@ -33,6 +33,11 @@ struct LanForm: View {
         VStack(alignment: .leading, spacing: Space.s) {
             Label("The board only supports 2.4 GHz Wi-Fi. If the router's 2.4 GHz and 5 GHz bands share one name, that name works. If they differ, enter the 2.4 GHz one — this device can stay on 5 GHz.",
                   systemImage: "antenna.radiowaves.left.and.right")
+            if pass.isEmpty && !ssid.trimmingCharacters(in: .whitespaces).isEmpty {
+                Label("A network without a password: anyone nearby can join it. The board lets only this device mirror to it and encrypts the screen it sends here, but its own hotspot is safer.",
+                      systemImage: "lock.open")
+            }
+            if app.lanJoin == .joined { MirroringRestartHint(app: app) }
             if let failure {
                 Label(failure, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Palette.warning)
             }
@@ -50,7 +55,10 @@ struct LanForm: View {
 
     /// Follow the phone's current network; its password is filled if it was remembered before.
     private func prefill() async {
-        if ssid.isEmpty, let current = await Hotspot.currentSSID() { ssid = current }
+        // the phone's network, or (a home network iOS won't name, the phone on the board's hotspot) the last one used
+        let hotspot = app.board.net?.mode == "ap" ? app.board.net?.ssid : app.hotspotSSID
+        if ssid.isEmpty, let suggested = LanMemory.suggestion(current: await Hotspot.currentSSID(), boardHotspot: hotspot,
+                                                              last: LanMemory.lastSSID) { ssid = suggested }
         if pass.isEmpty, let saved = WiFiPasswords.get(ssid) { pass = saved }
     }
 }
@@ -107,6 +115,21 @@ extension LanJoinState {
         case .checkingPhone: return "Checking This Device…"
         case .failed: return "Try Again"
         default: return "Connect the Board to This Wi-Fi"
+        }
+    }
+}
+
+/// After the board moved to another network: iOS keeps no mirroring session across it (the old one may still show as
+/// on in Control Center, frozen), so Screen Mirroring has to be started again. Shown until it streams.
+struct MirroringRestartHint: View {
+    @ObservedObject var app: AppModel
+
+    var body: some View {
+        if app.networkSwitched && app.board.status?.ap != "streaming" {
+            Label("The board is on another network now: start Screen Mirroring again. In Control Center tap Screen Mirroring, tap Stop Mirroring if it still shows \(BoardName.current), then pick \(BoardName.current).",
+                  systemImage: "rectangle.on.rectangle")
+                .font(.footnote)
+                .foregroundStyle(Palette.warning)
         }
     }
 }

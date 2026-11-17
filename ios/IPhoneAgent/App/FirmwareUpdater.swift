@@ -190,7 +190,8 @@ struct FirmwareReminder {
             do {
                 let started = now()
                 DebugLog.write("firmware: try \(n): sending \(image.count) bytes to \(ip) (BLE \(app.board.connected ? "up" : "down"))")
-                try await Firmware.push(image, md5: release.md5, host: ip, token: token) { p in
+                try await Firmware.push(image, md5: release.md5, host: ip, token: token,
+                                        proven: LanAuth.supported(app.board.status)) { p in
                     Task { @MainActor [weak self] in self?.progress = max(self?.progress ?? 0, p) }
                 }
                 DebugLog.write(String(format: "firmware: board took the image in %.1f s; restarting", now() - started))

@@ -143,14 +143,23 @@ enum Firmware {
 
     /// Sends the image to the board over its Wi-Fi (TCP, ota.h). Returns when the board has checked and installed
     /// it and is restarting. A cut connection leaves the running firmware as it was.
-    static func push(_ image: Data, md5: String, host: String, token: String, port: UInt16 = port,
+    /// `proven`: the board has the LAN lock (LanAuth): the token is proven, not sent, and the board checks the
+    /// image against the SHA-256 the proof covers ("chal", then "ota2 <size> <sha256> <hmac>").
+    static func push(_ image: Data, md5: String, host: String, token: String, proven: Bool = false, port: UInt16 = port,
                      progress: @escaping @Sendable (Double) -> Void) async throws {
         try await Task.detached(priority: .userInitiated) {
-            try pushBlocking(image, md5: md5, host: host, token: token, port: port, progress: progress)
+            try pushBlocking(image, md5: md5, host: host, token: token, proven: proven, port: port, progress: progress)
         }.value
     }
 
-    private static func pushBlocking(_ image: Data, md5: String, host: String, token: String, port: UInt16,
+    /// The first line(s) of an update: the plain header, or the answer to the board's challenge.
+    static func header(_ image: Data, md5: String, token: String, nonce: String?) -> String {
+        guard let nonce else { return "ota \(token) \(image.count) \(md5)\n" }
+        let sha = hex(SHA256.hash(data: image))
+        return "ota2 \(image.count) \(sha) \(LanAuth.ota(token: token, nonce: nonce, size: image.count, sha256: sha))\n"
+    }
+
+    private static func pushBlocking(_ image: Data, md5: String, host: String, token: String, proven: Bool, port: UInt16,
                                      progress: @Sendable (Double) -> Void) throws {
         let fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
         guard fd >= 0 else { throw Failure("socket() failed, errno \(errno)") }
@@ -168,7 +177,14 @@ enum Firmware {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
         }
         guard connected == 0 else { throw Failure(String(localized: "Can't reach the board over Wi-Fi. Put the iPhone on the board's Wi-Fi (or the network the board joined) and try again.")) }
-        try sendAll(fd, Data("ota \(token) \(image.count) \(md5)\n".utf8))
+        var nonce: String?
+        if proven {
+            try sendAll(fd, Data("chal\n".utf8))
+            let chal = try readLine(fd)
+            guard chal.hasPrefix("chal "), chal.count == 37 else { throw Failure(answer(chal)) }
+            nonce = String(chal.dropFirst(5))
+        }
+        try sendAll(fd, Data(header(image, md5: md5, token: token, nonce: nonce).utf8))
         let head = try readLine(fd)
         guard head == "ok" else { throw Failure(answer(head)) }
         let chunk = 16 * 1024

@@ -24,6 +24,7 @@
 		7DD892B0E4372254A2F7F011 /* LongRunTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5194DBA495C66E1F2CFB3F7B /* LongRunTests.swift */; };
 		3BC392087170CF25B0EF6C66 /* StandbyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935598F169616E6F22321BD4 /* StandbyTests.swift */; };
 		041DFAB6BE68032D48592AC2 /* HomeParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 406D13832E556B804F6F3887 /* HomeParts.swift */; };
+		042350D6CB7A39009DC39CD2 /* LanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A414BF4F4162E2C1E36FC4F5 /* LanTests.swift */; };
 		05D31A7EE842FF208FC1EDFC /* CrashFrames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08B208A7866AE0708D0AB584 /* CrashFrames.swift */; };
 		0638DE7546BE2E3578EAE3D6 /* StoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0884D2AF849046D0FA2E62C1 /* StoreTests.swift */; };
 		067F217DA07A144DE5E70807 /* JevStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11AC34B2265506C543C662F5 /* JevStep.swift */; };
@@ -149,6 +150,7 @@
 		80EA74A9A970F441C661524C /* StepText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2169FBFC7A60B9FC1FF1E724 /* StepText.swift */; };
 		812925C7EC9F24F99DC06037 /* AppPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25891E89F3EF8CFF37935661 /* AppPresence.swift */; };
 		813B34392DE59B38ECF07764 /* IntentSourceRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1E059B86529CBFE2705A0D /* IntentSourceRow.swift */; };
+		84B497CB31D10A30A1153D4F /* LanAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6021E638988EE46B1C5058A1 /* LanAuth.swift */; };
 		84CA12989B5CB62129C3419B /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E37B39FEB9A7A965ED4A86B3 /* Localizable.xcstrings */; };
 		855A29556730B57A49684886 /* PointerRecalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADFBFF990EF574958CAC841D /* PointerRecalibration.swift */; };
 		85678CC068CF3297ECF345DF /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E7721FA5F1DD53610AD0B737 /* InfoPlist.xcstrings */; };
@@ -417,6 +419,7 @@
 		5D14CD54CCE975AADC5EF1C2 /* IPhoneAgentUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = IPhoneAgentUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D1A7E0C2B9F4E61A3C80D12 /* ActionSpeedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionSpeedTests.swift; sourceTree = "<group>"; };
 		5DAABB20E9733B875E7D123D /* AudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTests.swift; sourceTree = "<group>"; };
+		6021E638988EE46B1C5058A1 /* LanAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanAuth.swift; sourceTree = "<group>"; };
 		6060A21F7A27EFFBD9E64E92 /* AgentLoop+Memory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AgentLoop+Memory.swift"; sourceTree = "<group>"; };
 		607F9EBBC39E74507B73F751 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
 		60955809E15AC0A89AD72418 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
@@ -479,6 +482,7 @@
 		A2A0229ED6EF9D83865BC9D6 /* ThreadStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadStore.swift; sourceTree = "<group>"; };
 		A3F73FBA51B3C953AECABE20 /* Firmware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Firmware.swift; sourceTree = "<group>"; };
 		A409B3696F547E712B4D4D14 /* PokeableFace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokeableFace.swift; sourceTree = "<group>"; };
+		A414BF4F4162E2C1E36FC4F5 /* LanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanTests.swift; sourceTree = "<group>"; };
 		A54BC007EE5C64A13CDEE9EE /* IslandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslandTests.swift; sourceTree = "<group>"; };
 		A5AF33659891C2EFF70D356A /* BoardProximityIllustration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardProximityIllustration.swift; sourceTree = "<group>"; };
 		A5CC3BCF7F90AF60B075DD96 /* Pointer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pointer.swift; sourceTree = "<group>"; };
@@ -687,6 +691,7 @@
 				A54BC007EE5C64A13CDEE9EE /* IslandTests.swift */,
 				DD41B01C484BEC1A52E74719 /* JevTests.swift */,
 				8E322C6A4D40557506D0D25E /* KeyboardHandoffTests.swift */,
+				A414BF4F4162E2C1E36FC4F5 /* LanTests.swift */,
 				F071F3E4D7B82DE70AE75A81 /* LLMTests.swift */,
 				C4C26A4FCAEEF88E765FD58B /* LocalizationTests.swift */,
 				DAA8DFDE53F3D74E87E873A5 /* LocalScriptTests.swift */,
@@ -922,6 +927,7 @@
 				33107099A7483949F03FBDB6 /* BoardLink.swift */,
 				0DFECC30B2ADEB1BB69072EC /* BoardProtocol.swift */,
 				A3F73FBA51B3C953AECABE20 /* Firmware.swift */,
+				6021E638988EE46B1C5058A1 /* LanAuth.swift */,
 				3F79752565BC836B68DC6693 /* LocalNetworkPermission.swift */,
 				4419027AA1E225C8DE22555D /* VideoSocket.swift */,
 				686157A11D312C986CCC58F5 /* VideoStream.swift */,
@@ -1190,6 +1196,7 @@
 				2E0528FB2EE598C85BE46D6B /* JevTests.swift in Sources */,
 				5FF8B2902D53068FD90072FB /* KeyboardHandoffTests.swift in Sources */,
 				48100361D2ECFE7E36F83F9D /* LLMTests.swift in Sources */,
+				042350D6CB7A39009DC39CD2 /* LanTests.swift in Sources */,
 				62D20C5D75CE71EBA0799233 /* LocalScriptTests.swift in Sources */,
 				69A6EB86B9D492839AE21C7C /* LocalizationTests.swift in Sources */,
 				94FDACB2484FC9BF5EF837C8 /* MemoryTests.swift in Sources */,
@@ -1317,6 +1324,7 @@
 				A8146F03F1C5164120A183B1 /* JevTypeSafe.swift in Sources */,
 				F250923A306EFB522382E32C /* Keyboard.swift in Sources */,
 				BB3C60862112DB87D3555158 /* LLMClient.swift in Sources */,
+				84B497CB31D10A30A1153D4F /* LanAuth.swift in Sources */,
 				AE7CA51F2678D1D6246AACBD /* LanJoin.swift in Sources */,
 				85CAA7475FF5211D9DF6B577 /* ListenSection.swift in Sources */,
 				AD702230192ADBF827044490 /* LiveActivity.swift in Sources */,

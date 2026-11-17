@@ -234,6 +234,7 @@ struct SeePage: View {
                 Text("Now swipe down from the top-right corner and tap **Screen Mirroring → ESP32 Agent**.")
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                MirroringRestartHint(app: app)
                 MiniPhoneDemo(kind: .controlCenter)
                 HStack(spacing: Space.s) {
                     ProgressView().controlSize(.small)
@@ -267,6 +268,7 @@ struct SeePage: View {
                 Text("Now swipe down from the top-right corner and tap **Screen Mirroring → \(BoardName.current)**.")
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                MirroringRestartHint(app: app)
                 MiniPhoneDemo(kind: .controlCenter)
                 VStack(spacing: Space.s) {
                     HStack(spacing: Space.s) {

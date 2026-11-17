@@ -131,7 +131,10 @@ extension AppModel {
             let boardSSID = lanSSID ?? board.net?.ssid
             let on = board.status?.net == "sta" && (wifiVideo.active || (current != nil && current == boardSSID))
             if phoneOnBoardLAN != on { phoneOnBoardLAN = on }
-            if board.status?.net == "sta", let s = board.net?.ssid, lanSSID != s { lanSSID = s }
+            if board.status?.net == "sta", let s = board.net?.ssid, lanSSID != s {
+                lanSSID = s
+                LanMemory.lastSSID = s
+            }
             return
         }
         if phoneOnBoardLAN { phoneOnBoardLAN = false }

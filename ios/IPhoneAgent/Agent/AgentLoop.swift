@@ -229,7 +229,7 @@ extension Gestures {
         defer { if shown != nil { onRecover?(nil) } }
         while true {
             try Task.checkCancellation()
-            guard now() < deadline else { throw BlindError(reason: Recovery.reason(shown?.part ?? .board)) }
+            guard now() < deadline else { throw BlindError(reason: Recovery.reason(shown?.part ?? .board, lan: shown?.lan ?? false)) }
             var state = link?() ?? Recovery.Link(connected: phone?.device.connected ?? true, sta: nil,
                                         ap: screen.live ? "streaming" : nil, frameAt: screen.live ? now() : 0)
             if forceRestore, state.connected, state.sta != 0, state.ap == "streaming" {
@@ -250,7 +250,7 @@ extension Gestures {
                 guard !connectionChanged(since: restoringLinks), screen.live else { break }
                 await screen.settled()
                 try Task.checkCancellation()
-                guard now() < deadline else { throw BlindError(reason: Recovery.reason(shown?.part ?? .board)) }
+                guard now() < deadline else { throw BlindError(reason: Recovery.reason(shown?.part ?? .board, lan: shown?.lan ?? false)) }
                 guard !connectionChanged(since: restoringLinks) else { break }
                 return now() - recovery.started
             case .live: break

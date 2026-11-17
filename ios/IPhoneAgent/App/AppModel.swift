@@ -191,6 +191,13 @@ import UIKit
         setListening(ListenSetting.on)
         feed.continuous = { [weak self] in self?.wifiVideo.active ?? false }
         wifiVideo.resumeAt = { [weak self] in self?.feed.resumeMs }
+        // a board on a home network that has the LAN lock: the token is proven, never sent, and the video encrypted
+        // (lanMode: a status not in yet counts as the hotspot; "status.net != ap" read nil as a home network, so the
+        // hotspot's first session went encrypted, 2026-11-17)
+        wifiVideo.secure = { [weak self] in
+            guard let self, LanAuth.supported(board.status) else { return false }
+            return lanMode
+        }
         feed.onGap = { [weak self] in self?.wifiVideo.resume() }
         wifiVideo.onActive = { [weak self] on in
             self?.feed.resetStream()  // the board resends from the IDR on the new path
@@ -209,6 +216,7 @@ import UIKit
             self?.feed.frozen = frozen
             if s.ap == "streaming" { Analytics.captureOnce("mirroring_started") }
             if started { DebugLog.write("mirroring started"); self?.prewarmStream() }  // a pre-warm at link-up fails until mirroring runs
+            if s.ap == "streaming", self?.networkSwitched == true { self?.networkSwitched = false }
             if let up = s.up { self?.feed.boardClock(ms: up) }
             self?.metrics.status(s)
             self?.logStatus(s)
@@ -422,7 +430,9 @@ import UIKit
     /// board erases the dump once read at boot, so each one is reported for the boot it belongs to.
     private func reportBoardReboot(_ s: BoardStatus, up: Int) {
         let bootedAt = now() - Double(up) / 1000
-        guard abs(bootedAt - lastBoardBoot) > 60 else { return }  // the same boot, seen again
+        // the same boot, seen again (its estimate moves by a second or so). 60 s took a crash 42 s after a power-on for
+        // that boot, and its dump was never read (2026-11-17)
+        guard abs(bootedAt - lastBoardBoot) > 10 else { return }
         lastBoardBoot = bootedAt
         Task { [weak self] in
             guard let self else { return }
@@ -463,6 +473,9 @@ import UIKit
     @Published var lanSSID: String?
     /// The phone can reach the board over the LAN (same network name, or the video channel is up).
     @Published var phoneOnBoardLAN = false
+    /// The board moved to another network (home Wi-Fi <-> its hotspot) and no mirroring session runs on the new one
+    /// yet: iOS does not follow it, Screen Mirroring has to be started again (MirroringRestartHint).
+    @Published var networkSwitched = false
 
     func bench(kb: Int = 256) async {
         do {

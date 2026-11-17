@@ -256,6 +256,7 @@ struct BoardSettingsView: View {
                 }
             }
             Section {
+                if app.networkSwitched && board.status?.ap != "streaming" { MirroringRestartHint(app: app) }
                 if app.lanMode {
                     ValueRow(title: "Mode", value: String(localized: "Home Wi-Fi (LAN)"))
                     if let ssid = app.lanSSID ?? board.net?.ssid { ValueRow(title: "Network", value: ssid) }

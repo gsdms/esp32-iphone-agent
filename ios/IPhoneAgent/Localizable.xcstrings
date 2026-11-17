@@ -21,6 +21,16 @@
         }
       }
     },
+    "A network without a password: anyone nearby can join it. The board lets only this device mirror to it and encrypts the screen it sends here, but its own hotspot is safer." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是没有密码的网络：附近任何人都能加入。板子只允许这台设备投屏，并加密发到这里的屏幕画面，但板子自己的热点更安全。"
+          }
+        }
+      }
+    },
     "A tool's address must be https." : {
       "localizations" : {
         "zh-Hans" : {
@@ -381,6 +391,16 @@
         }
       }
     },
+    "Joining \"%@\" was declined. Join it in Settings › Wi-Fi, or try again." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入“%@”被拒绝。请在“设置 › 无线局域网”中加入，或重试。"
+          }
+        }
+      }
+    },
     "Key ending in %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -697,6 +717,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这次任务有部分步骤是 AI 自己完成的，并且运行成功，所以那次运行的步骤成了保存的步骤。"
+          }
+        }
+      }
+    },
+    "The board is on another network now: start Screen Mirroring again. In Control Center tap Screen Mirroring, tap Stop Mirroring if it still shows %@, then pick %@." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "板子已经换到另一个网络：请重新开始屏幕镜像。在控制中心点“屏幕镜像”，如果仍显示 %@，先点“停止镜像”，再选择 %@。"
           }
         }
       }
@@ -1047,6 +1077,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "撤销：改回之前的步骤"
+          }
+        }
+      }
+    },
+    "Update the board's firmware first (Settings › Board, on the board's own Wi-Fi). Older firmware lets every device on the home network mirror to the board." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先更新板子的固件（设置 › 板子，在板子自己的 Wi-Fi 上更新）。旧固件允许家庭网络里的任何设备向板子投屏。"
           }
         }
       }

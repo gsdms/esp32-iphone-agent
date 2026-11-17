@@ -40,6 +40,7 @@ struct BoardStatus: Codable, Equatable {
     var fz: Int?       // 1: GOP full, no new frame until mirroring sends a keyframe (0.2.2+; nil = 0)
     var ble: BLE?
     var udp: UDP?
+    var own: Int?      // LAN lock (LanAuth): 1 = on a home network with an owner, only it may mirror; nil = no lock
 
     static func decode(_ data: Data) -> BoardStatus? { try? JSONDecoder().decode(BoardStatus.self, from: data) }
 
@@ -56,6 +57,7 @@ struct BoardStatus: Codable, Equatable {
         let a = ble ?? BLE(), b = n.ble ?? BLE()
         m.ble = BLE(mtu: b.mtu ?? a.mtu, phy: b.phy ?? a.phy, kbps: b.kbps ?? a.kbps, drop: b.drop ?? a.drop)
         m.udp = n.udp ?? udp
+        // own is not carried over either (in every status): a board flashed back to older firmware has no lock
         return m
     }
 }

@@ -439,8 +439,7 @@ enum Keychain {
 /// Joins the board's SoftAP with the credentials read over BLE (never shown or logged).
 enum Hotspot {
     static func join(_ net: NetConfig) async throws {
-        guard let ssid = net.ssid, let pass = net.pass else { throw DeviceError(message: "board sent no hotspot credentials") }
-        let config = NEHotspotConfiguration(ssid: ssid, passphrase: pass, isWEP: false)
+        let config = try configuration(net)
         config.joinOnce = false
         do {
             try await NEHotspotConfigurationManager.shared.apply(config)
@@ -448,6 +447,18 @@ enum Hotspot {
                     && e.code == NEHotspotConfigurationError.alreadyAssociated.rawValue {
             return
         }
+    }
+
+    /// The board's hotspot always has a password. A home network (LAN mode, mode "sta") may have none: then it is
+    /// joined as an open network (a passphrase of "" is invalid and failed the join, 2026-11-10).
+    static func configuration(_ net: NetConfig) throws -> NEHotspotConfiguration {
+        guard let ssid = net.ssid, !ssid.isEmpty else { throw DeviceError(message: "board sent no hotspot credentials") }
+        let pass = net.pass ?? ""
+        if pass.isEmpty {
+            guard net.mode == "sta" else { throw DeviceError(message: "board sent no hotspot credentials") }
+            return NEHotspotConfiguration(ssid: ssid)
+        }
+        return NEHotspotConfiguration(ssid: ssid, passphrase: pass, isWEP: false)
     }
 
     /// For the debug log: domain, code, the NEHotspotConfigurationError name and the message.
