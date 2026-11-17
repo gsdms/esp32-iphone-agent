@@ -48,6 +48,9 @@ New:
 - `result ID` (0.2.5) — the reply this side got (or should have got) for request `ID`, as `ok <that reply>`,
   from the board's last 8; `err unknown id …` if it is not among them. Read only: ask it when a reply is late
   instead of sending the command again.
+- `own [IP | off]` (LAN lock, see "LAN mode") — the phone this board belongs to on a home network: `own` shows it
+  (`ok <ip>|none [locked]`), `own IP` sets it, `own off` forgets it. The app never needs it: an `auth` video
+  session sets it. Also from the CLI.
 When the link drops, the board releases all buttons/keys (same as before).
 
 ## status (JSON, one notify per second, must fit one MTU; keep short keys)
@@ -67,6 +70,8 @@ When the link drops, the board releases all buttons/keys (same as before).
 `lost` (0.2.5) = AirPlay video packets the board dropped for good since boot (decrypted in step but not a
 frame). After one, the frames that follow may not decode until the next IDR: if decoding fails right after
 `lost` goes up, ask for screen mirroring to be restarted instead of waiting.
+`own` (LAN lock) = 1 when the board is on a home network and belongs to one phone (only it may mirror), else 0.
+Firmware without the lock sends no `own`; it is in the reduced status too.
 
 Send priority: replies and status are queued and always go out before further video; video keeps at most
 ~8 ACL packets (~2 KB) in the controller, so a reply waits behind at most that much video. In `stream on`,
@@ -131,6 +136,28 @@ u16 seq: `[seq u16 LE][flags][payload]`, payload `[u32 LE board ms][u32 LE RTP t
 Read: `{"mode":"ap","ssid":"ESP32Agent-1A2B","pass":"<random 12 chars>","ip":"192.168.4.1","vtok":"<32 hex>"}`
 (SoftAP credentials are generated once at first boot and kept in NVS; `vtok` is new every boot).
 Write `{"mode":"ap"}` or `{"mode":"sta","ssid":"...","pass":"..."}` — stored in NVS, board restarts Wi-Fi.
+An empty or missing `pass` is an open network. Going from a home network back to `{"mode":"ap"}` restarts the board
+(firmware with the LAN lock): its AirPlay receiver was not found on the hotspot after a switch without one. Joining
+a home network does not restart it; AirPlay is advertised again there once the board has an address.
+
+## LAN mode (station) and the LAN lock
+On its own hotspot (WPA2, a random password only a bonded app reads) the board trusts whoever joined. On a home
+network every device there sees its AirPlay receiver, and the network may even be open. So in mode `sta`:
+- **Owner.** The address of the last app that opened the Wi-Fi video with `auth` (below), or one set with `own`,
+  kept in NVS for this network and forgotten when the network changes. Without an owner the board behaves as
+  before. With one (`own` 1 in status), AirPlay (RTSP 7000 and the mirror data port) from any other address is
+  closed at once, and so are the plain-token `hello` and `ota` headers.
+- **Proof instead of the token.** The board sends a fresh nonce (16 random bytes as 32 hex characters) and the app
+  answers with HMAC-SHA256(vtok, message), in lower-case hex:
+  - video (TCP 7201): app `chal`, board record `chal<nonce>` (36 bytes), app `auth <hmac of "video <nonce>"> [at <ms>]`,
+    board the zero-length ack. Every non-empty record after it is AES-128-CTR encrypted: one keystream over all
+    records in order, from a zero counter block, key = the first 16 bytes of HMAC-SHA256(vtok, "video key <nonce>").
+    `resume [at <ms>]` on the open session asks what `hello … at` asks, without the token.
+  - update (TCP 7300, ota.h): app `chal`, board `chal <nonce>`, app `ota2 <size> <sha256> <hmac of
+    "ota <nonce> <size> <sha256>">`; the board checks the image's SHA-256 before it boots it.
+  A nonce is good for one answer. The vectors in `hardware/tests` (test_lan_lock) and the app's LanAuthTests agree.
+- The app uses the proof whenever the board reports `own` and is not on its hotspot, and only offers LAN mode on
+  such firmware. An open network is joined without a passphrase on the phone too.
 
 ## AirPlay
 Receiver name `ESP32 Agent`, mirroring only, H.264 video plus AAC-ELD audio while there is sound (see Wi-Fi audio), resolution/fps from NVS.

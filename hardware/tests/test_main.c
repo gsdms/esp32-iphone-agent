@@ -16,6 +16,7 @@
 #include "../hid_bridge/src/log/logring.h"
 #include "mdns.h"  // stubs/: the host stand-in for ESP-IDF mdns
 #include "../hid_bridge/src/airplay/ap_internal.h"
+#include "../hid_bridge/src/net/lan_lock.h"
 
 static int fails;
 #define CHECK(c) do { if (!(c)) { fails++; printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); } } while (0)
@@ -518,7 +519,73 @@ static void test_heard(void) {
   CHECK(strlen(r.text[(r.next + HEARD_LINES - 1) % HEARD_LINES]) == HEARD_TEXT - 1);
 }
 
+// The LAN lock (src/net/lan_lock.h). The vectors are shared with the app's LanAuthTests (openssl, 2026-11-17).
+static void test_lan_lock(void) {
+  char mac[LAN_MAC_HEX + 1];
+  lan_mac("Jefe", "what do ya want for nothing?", mac);  // RFC 4231 test case 2
+  CHECK(!strcmp(mac, "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"));
+  const char *tok = "00112233445566778899aabbccddeeff", *nonce = "0f0e0d0c0b0a09080706050403020100";
+  CHECK(lan_mac_ok(tok, "video 0f0e0d0c0b0a09080706050403020100",
+                   "df20947056845d461c448d63b048d4ba21b3d9bf15ca7fda2be7177c74184655"));
+  CHECK(lan_mac_ok(tok, "video 0f0e0d0c0b0a09080706050403020100",
+                   "DF20947056845D461C448D63B048D4BA21B3D9BF15CA7FDA2BE7177C74184655"));
+  CHECK(!lan_mac_ok(tok, "video 0f0e0d0c0b0a09080706050403020101",
+                    "df20947056845d461c448d63b048d4ba21b3d9bf15ca7fda2be7177c74184655"));
+  CHECK(!lan_mac_ok(tok, "video x", "df20"));
+  CHECK(!lan_mac_ok(tok, "video x", NULL));
+  CHECK(lan_mac_ok(tok, "ota 0f0e0d0c0b0a09080706050403020100 1234 "
+                        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                   "37fa45d2f82c619a4cef6dd88ac0978791255d6ca3acad4f54acc49442b6e3a2"));
+
+  // one keystream across records: split anywhere, the same bytes as one piece
+  const char *plain = "Handsy LAN video: one stream, two records.";
+  static const uint8_t want[] = {0xb4, 0x17, 0xfa, 0x25, 0x17, 0xf1, 0xad, 0x6d, 0x84, 0x31, 0x84, 0xb7, 0xc4, 0xfc,
+                                 0x95, 0xbe, 0xa5, 0x5f, 0x6a, 0x8e, 0x0b, 0xfd, 0x42, 0xb0, 0xc7, 0xc5, 0x43, 0xdd,
+                                 0x21, 0x11, 0xf4, 0x6f, 0x53, 0xbe, 0xc5, 0x12, 0x2a, 0x6b, 0xb8, 0x77, 0x44, 0x4c};
+  size_t n = strlen(plain);
+  CHECK(n == sizeof want);
+  uint8_t buf[64];
+  memcpy(buf, plain, n);
+  lan_ctr c = {0};
+  lan_ctr_crypt(&c, buf, n);  // not started: nothing
+  CHECK(!memcmp(buf, plain, n));
+  lan_ctr_start(&c, tok, nonce);
+  lan_ctr_crypt(&c, buf, 7);
+  lan_ctr_crypt(&c, buf + 7, 0);
+  lan_ctr_crypt(&c, buf + 7, n - 7);
+  CHECK(!memcmp(buf, want, n));
+  lan_ctr_start(&c, tok, nonce);  // a new session starts the stream over
+  lan_ctr_crypt(&c, buf, n);
+  CHECK(!memcmp(buf, plain, n));
+  lan_ctr_stop(&c);
+
+  char nh[LAN_NONCE_HEX + 1];
+  const uint8_t r[16] = {0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+  lan_nonce(nh, r);
+  CHECK(!strcmp(nh, nonce));
+
+  uint32_t phone, other, ip;
+  char back[16];
+  CHECK(lan_parse_ip("192.168.1.23", &phone) && lan_parse_ip("192.168.1.24", &other));
+  lan_format_ip(phone, back);
+  CHECK(!strcmp(back, "192.168.1.23"));
+  const uint8_t *bytes = (const uint8_t *)&phone;  // network order, as lwIP keeps sin_addr
+  CHECK(bytes[0] == 192 && bytes[3] == 23);
+  CHECK(!lan_parse_ip("192.168.1", &ip) && !lan_parse_ip("192.168.1.256", &ip) && !lan_parse_ip("1.2.3.4x", &ip));
+
+  // hotspot: everyone; station without an owner: everyone; station with one: only the owner
+  lan_set_station(false);
+  lan_set_owner(phone);
+  CHECK(!lan_locked() && lan_peer_ok(other));
+  lan_set_station(true);
+  CHECK(lan_locked() && lan_peer_ok(phone) && !lan_peer_ok(other));
+  lan_set_owner(0);
+  CHECK(!lan_locked() && lan_peer_ok(other));
+  lan_set_station(false);
+}
+
 int main(void) {
+  test_lan_lock();
   test_heard();
   test_audio_packets();
   test_audio_gate();

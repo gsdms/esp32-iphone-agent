@@ -31,6 +31,7 @@
 #include "src/hid/arbiter.h"
 #include "src/hid/pace.h"
 #include "src/heard/heard.h"
+#include "src/net/lan_lock.h"
 #include "src/cli/cli_proto.h"
 #include "logbuf.h"
 
@@ -355,6 +356,18 @@ String board(const String &line, const String &id, char who) {
     if (arg.length() && !net_coex(arg)) return "err usage: coex bt|balance|wifi";
     return String("ok ") + net_coex_mode();
   }
+  if (cmd == "own") {  // LAN lock (src/net/lan_lock.h): `own` shows the owner, `own off` forgets it, `own IP` sets it
+    char ip[16];
+    if (arg == "off") net_set_owner(0);
+    else if (arg.length()) {
+      uint32_t a;
+      if (!lan_parse_ip(arg.c_str(), &a) || !a) return "err usage: own [IP | off]";
+      if (strcmp(net_mode(), "ap") == 0) return "err not on a home network";
+      net_set_owner(a);
+    }
+    lan_format_ip(lan_owner(), ip);
+    return String("ok ") + (lan_owner() ? ip : "none") + (lan_locked() ? " locked" : "");
+  }
   if (cmd == "unpair") {
     ble_reply(id + " ok");  // answer before the link goes down
     ble_unpair();
@@ -405,12 +418,13 @@ String statusJson(bool full, char who) {
     snprintf(s + len - 1, sizeof s - len + 1, ",\"busy\":%d}", app);
   }
   len = strlen(s);
-  snprintf(s + len - 1, sizeof s - len + 1, ",\"lost\":%lu}", (unsigned long)v.lost);
+  snprintf(s + len - 1, sizeof s - len + 1, ",\"lost\":%lu,\"own\":%d}", (unsigned long)v.lost, lan_locked());
   if (full) return s;
   // MTU below ~250 (before the MTU exchange): keep only the fields the app needs to stay alive
   snprintf(s, sizeof s, "{\"fw\":\"%s\"," ABS_FIELD "\"up\":%lu,\"rst\":\"%s\",\"usb\":\"%s\",\"net\":\"%s\",\"ap\":\"%s\",\"fz\":%d,\"ble\":{\"mtu\":%u}",
            FW_VERSION, millis(), resetReason(), usbState(), net_mode(), apStates[airplay_state()], v.frozen, ble_mtu());
-  snprintf(s + strlen(s), sizeof s - strlen(s), ",\"owner\":\"%s\",\"lost\":%lu", owner, (unsigned long)v.lost);
+  snprintf(s + strlen(s), sizeof s - strlen(s), ",\"owner\":\"%s\",\"lost\":%lu,\"own\":%d", owner, (unsigned long)v.lost,
+           lan_locked());
   if (who == FROM_CLI)
     snprintf(s + strlen(s), sizeof s - strlen(s), ",\"busy\":%d,\"ip\":\"%s\",\"link\":{\"via\":\"%s\",\"mtu\":%u}", app,
              net_ip().c_str(), cli_wifi() ? "wifi" : "ble", cli_mtu());
@@ -470,6 +484,7 @@ void startAirplay() {
   cfg.on_audio = wv_audio;
   cfg.log = logLine;
   cfg.on_lost = video_on_lost;
+  cfg.allow_peer = lan_peer_ok;  // on a home network: only the owner's phone mirrors
   if (!airplay_start(&cfg)) board_log("airplay: start failed");
 }
 
