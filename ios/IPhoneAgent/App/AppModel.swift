@@ -112,6 +112,7 @@ import UIKit
     var runStarted = Date()
     var runUsage = ModelUsage()
     private var settingsSink: AnyCancellable?
+    private var geometrySink: AnyCancellable?
     var videoSink: AnyCancellable?
     var videoDir: URL?
     private(set) lazy var calibrator = AutoCalibrator(app: self)
@@ -146,6 +147,13 @@ import UIKit
         board.commands.log = say
         pointer.log = say
         pointer.screenAspect = { DeviceScreen.aspect }
+        pointer.currentGeometry = { [weak self] in self?.feed.geometry }  // nil on iPhone
+        if DeviceKind.isPad {  // turned: the orientation's own calibration, if it has one
+            geometrySink = feed.$size.removeDuplicates().receive(on: RunLoop.main).sink { [weak self] _ in
+                guard let self else { return }
+                pointer.adopt(feed.geometry)
+            }
+        }
         pointer.locate = { [weak self] jpeg in await self?.locatePointer(jpeg) }
         pointer.ownAppInFront = { [weak self] in self.map { !$0.appIsBackgrounded } ?? false }
         // Lines come from any thread (a firmware check, MetricKit's crash report): hop to the main actor when
@@ -217,14 +225,19 @@ import UIKit
             if s.ap == "streaming" { Analytics.captureOnce("mirroring_started") }
             if started { DebugLog.write("mirroring started"); self?.prewarmStream() }  // a pre-warm at link-up fails until mirroring runs
             if s.ap == "streaming", self?.networkSwitched == true { self?.networkSwitched = false }
+            #if DEBUG
+            if started { self?.displayTrialSession() }
+            #endif
             if let up = s.up { self?.feed.boardClock(ms: up) }
             self?.metrics.status(s)
             self?.logStatus(s)
+            self?.matchMirrorDisplay(s)
             self?.refreshLinkRecoveryDisplay()
         }
         board.onLinkUp = { [weak self] in
             guard let self else { return }
             Analytics.captureOnce("board_connected")
+            mirrorDisplayAsked = false
             feed.resetStream()
             metrics.mtu = board.mtu
             updateWifiVideo()
@@ -263,6 +276,7 @@ import UIKit
         agent.gate = { [weak self] in
             try await self?.holdWhileInFront()
             try await self?.holdWhilePaused()
+            try self?.validateRunGeometry()
         }
         agent.memory = MemoryStore.shared
         agent.onWrite = { [weak self] text in try await self?.putOnClipboard(text) ?? false }
@@ -443,6 +457,31 @@ import UIKit
         }
     }
 
+    /// The board advertises the AirPlay display for one device (it is stored on the board). iPad: when it reports
+    /// another size than the iPad wants, set the iPad's. iPhone: left alone, except a board an iPad set to its
+    /// display (not taller than wide, which an iPhone never wants) goes back to the default. iOS reads the
+    /// display when Screen Mirroring starts, so a session already running keeps its size until mirroring restarts.
+    func matchMirrorDisplay(_ s: BoardStatus) {
+        guard !MockMode.on, !mirrorDisplayAsked, let w = s.w, let h = s.h else { return }
+        let want = DeviceCaps.mirrorDisplay
+        #if DEBUG
+        let testing = DeviceCaps.mirrorDisplayOverride != nil
+        #else
+        let testing = false
+        #endif
+        guard (w, h) != want, DeviceKind.isPad || testing || DeviceCaps.iPadsDisplay(w: w, h: h) else { return }
+        mirrorDisplayAsked = true
+        Task {
+            do {
+                try await board.commands.send("res \(want.w) \(want.h)")
+                DebugLog.write("AirPlay display \(w)x\(h) -> \(want.w)x\(want.h) for this device"
+                               + (s.ap == "streaming" ? "; applies when Screen Mirroring next starts" : ""))
+            } catch {
+                DebugLog.write("AirPlay display: res \(want.w) \(want.h) failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// The character's mood right now.
     var mood: Mood { runMood ?? (board.connected ? .idle : .sleeping) }
 
@@ -462,6 +501,12 @@ import UIKit
     /// The one-tap join of the board's Wi-Fi (state machine in HotspotJoin.swift).
     @Published var join = JoinState.idle
     var joinTask: Task<Void, Never>?
+
+    /// Asked the board for this device's AirPlay display on this link already (reset on link-up), so a refused `res`
+    /// isn't resent with every status.
+    var mirrorDisplayAsked = false
+    /// Debug display test (iphoneagent://display): sizes still to advertise, one per mirroring session.
+    var displayTrials: [(w: Int, h: Int)] = []
 
     /// Set when one-tap join failed: the user joins in Settings with the shown password.
     @Published var manualHotspot: NetConfig?

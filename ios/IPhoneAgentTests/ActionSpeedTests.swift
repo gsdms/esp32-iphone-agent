@@ -6,8 +6,16 @@ import XCTest
 /// The action phase's waits (2026-11-11): what a step spends between the model's reply and the first gesture, settles
 /// on screens that keep moving, the pointer's second reading, a far landing, and the Home key's check.
 @MainActor final class ActionSpeedTests: XCTestCase {
+    /// These tests check the iPhone's moves; the iPad's own tests set DeviceKind.isPad themselves (CI runs both).
+    private static var wasPad = false
+    override func setUp() {
+        super.setUp()
+        Self.wasPad = DeviceKind.isPad
+        DeviceKind.isPad = false
+    }
     override func tearDown() {
         StepWaits.reset()
+        DeviceKind.isPad = Self.wasPad
         super.tearDown()
     }
 

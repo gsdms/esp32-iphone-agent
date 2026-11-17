@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 @testable import IPhoneAgent
 
@@ -74,7 +75,7 @@ import XCTest
         XCTAssertTrue(stage.line.contains("ESP32 Agent › Settings › Board"))
         XCTAssertFalse(stage.line.contains("Join the board's Wi-Fi"))
         XCTAssertTrue(Recovery.reason(.hotspot, lan: true).contains("the board"))
-        XCTAssertTrue(Recovery.reason(.hotspot).contains("the iPhone"))
+        XCTAssertTrue(Recovery.reason(.hotspot).contains(UIDevice.current.userInterfaceIdiom == .pad ? "the iPad" : "the iPhone"))  // its string catalog variant
         // The same stage without lan keeps the hotspot wording.
         XCTAssertTrue(Recovery.Stage(part: .hotspot, ask: true).line.contains("Join the board's Wi-Fi"))
     }

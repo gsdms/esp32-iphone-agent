@@ -219,6 +219,7 @@ extension AppModel {
             agent.startsOnHome = !resume && !startedAway  // leaveForRun went to the Home Screen
             if startedAway { agent.hints.insert(Self.hereHint, at: 0) }
             step = .agentStart
+            try validateRunGeometry()
             try agent.start(task, traceStarted: true, resume: resume)
             RunMarker.set("running")
             usedInput = false  // The running agent now owns cleanup.

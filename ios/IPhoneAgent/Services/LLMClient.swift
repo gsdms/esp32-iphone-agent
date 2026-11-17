@@ -7,21 +7,33 @@ import UniformTypeIdentifiers
 /// model answers in 0-1000 coordinates, so a smaller image keeps taps where they were.
 enum ModelImage {
     static let maxWidth = 540, quality = 0.6
+    /// iPad: a pixel budget instead of a width, about an iPhone's: 540 px wide left a landscape iPad at 540x375, too
+    /// coarse to read its tab bar (2026-10-26), while its whole 834x1200 frame cost ~1.6x an iPhone's tokens and upload
+    /// (2026-11-17: 3,700 prompt tokens a step on Qwen, 112-131 KB). 720k pixels is ~1.15x an iPhone's 540x1170:
+    /// 1017x707 in landscape, 707x1017 in portrait. A frame within it goes as decoded.
+    static let padPixels = 720_000
     /// Settings › Model › Advanced; on unless turned off.
     static let key = "shrinkModelImage"
     static var on: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
 
     /// The copy for the model: shrunk, or the full frame with the setting off.
-    static func forModel(_ jpeg: Data) -> Data { on ? shrink(jpeg) : jpeg }
+    static func forModel(_ jpeg: Data) -> Data { on ? shrink(jpeg, maxPixels: DeviceKind.isPad ? padPixels : nil) : jpeg }
 
-    static func shrink(_ jpeg: Data) -> Data {
+    /// maxPixels nil (iPhone): at most `maxWidth` wide.
+    static func shrink(_ jpeg: Data, maxPixels: Int? = nil) -> Data {
         guard let source = CGImageSourceCreateWithData(jpeg as CFData, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = props[kCGImagePropertyPixelWidth] as? Int, let height = props[kCGImagePropertyPixelHeight] as? Int
         else { return jpeg }
+        var longSide = max(width, height) * min(maxWidth, width) / width
+        if let maxPixels {
+            let scale = (Double(maxPixels) / Double(max(width * height, 1))).squareRoot()
+            guard scale < 1 else { return jpeg }
+            longSide = Int(Double(max(width, height)) * scale)
+        }
         let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
                                         kCGImageSourceCreateThumbnailWithTransform: true,
-                                        kCGImageSourceThumbnailMaxPixelSize: max(width, height) * min(maxWidth, width) / width]
+                                        kCGImageSourceThumbnailMaxPixelSize: longSide]
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return jpeg }
         let out = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(out, UTType.jpeg.identifier as CFString, 1, nil) else { return jpeg }

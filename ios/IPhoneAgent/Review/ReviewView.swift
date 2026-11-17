@@ -95,7 +95,9 @@ struct ReviewView: View {
                     .padding(.horizontal, Space.xl)
                     .padding(.bottom, Space.xs)
                 }
-                if showVideo && !video.isEmpty {  // continuous video, scrubbed in seconds
+                if DeviceKind.isPad {  // iPad: side by side in landscape (an iPhone is always portrait)
+                    GeometryReader { g in padContent(columns: g.size.width > g.size.height) }
+                } else if showVideo && !video.isEmpty {  // continuous video, scrubbed in seconds
                     RunVideoView(frames: video, time: videoTime, caption: step.map { StepText.title($0.action) })
                     VideoScrubber(start: video[0].t, end: video[video.count - 1].t, time: $videoTime, playing: $playing)
                         .padding(.horizontal, Space.xl)
@@ -205,6 +207,49 @@ struct ReviewView: View {
     /// The next yellow step after this one (or the first, from the last).
     private var nextUnsure: Int? {
         steps.indices.first { $0 > index && steps[$0].uncertain } ?? steps.indices.first { $0 < index && steps[$0].uncertain }
+    }
+
+    /// iPad: the iPhone's column, or in landscape the screenshot (or video) on the left and the step, timeline and
+    /// controls on the right, so the wide screenshot isn't squeezed into a strip above them.
+    @ViewBuilder private func padContent(columns: Bool) -> some View {
+        let videoView = showVideo && !video.isEmpty
+        if columns {
+            HStack(spacing: 0) {
+                if videoView {
+                    VStack(spacing: 0) {
+                        RunVideoView(frames: video, time: videoTime, caption: step.map { StepText.title($0.action) })
+                        VideoScrubber(start: video[0].t, end: video[video.count - 1].t, time: $videoTime, playing: $playing)
+                            .padding(.horizontal, Space.xl)
+                            .padding(.bottom, Space.xs)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    controls.frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    media.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ScrollView(.vertical) {
+                        VStack(spacing: 0) {
+                            stepCard
+                            ReviewTimeline(steps: steps, index: $index, playing: $playing).padding(.horizontal, Space.xl)
+                            controls
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+        } else {
+            VStack(spacing: 0) {
+                if videoView {
+                    RunVideoView(frames: video, time: videoTime, caption: step.map { StepText.title($0.action) })
+                    VideoScrubber(start: video[0].t, end: video[video.count - 1].t, time: $videoTime, playing: $playing)
+                        .padding(.horizontal, Space.xl)
+                } else {
+                    media
+                    stepCard
+                    ReviewTimeline(steps: steps, index: $index, playing: $playing).padding(.horizontal, Space.xl)
+                }
+                controls
+            }
+        }
     }
 
     @ViewBuilder private var stepCard: some View {

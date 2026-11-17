@@ -83,7 +83,7 @@ import NaturalLanguage
                 }
                 typed += s
                 if Self.symbolsWrong(plain, symbols, now: seen.seen, row: seen.row, before: before, beforeRow: lastRow) {
-                    return "the symbols \(String(symbols)) came out as other characters: the iPhone's hardware keyboard layout"
+                    return "the symbols \(String(symbols)) came out as other characters: the \(DeviceKind.name)'s hardware keyboard layout"
                         + " is not U.S. (Settings > General > Keyboard > Hardware Keyboard); typed \"\(typed)\" with them"
                         + " wrong, not typed: \"\(queue.map(\.text).joined())\""
                 }

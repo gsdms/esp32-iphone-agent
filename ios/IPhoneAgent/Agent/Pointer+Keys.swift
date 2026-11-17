@@ -47,12 +47,21 @@ extension Pointer {
         // ctrl+space cycles every keyboard the phone has (English, 拼音, emoji …). Each press is followed until the
         // screen shows a different keyboard; one that shows no change ends it. iddzz 2026-11-12: the second read
         // came before the switch showed, a second press went on past 拼音 to emoji, and "智能椅" never went in.
+        var pressedAgain = false
         for _ in 0..<3 {
             if layout == .none || (layout == .pinyin) == pinyin { return layout }
             log("type: the keyboard is \(layout == .pinyin ? "pinyin" : "English"); switching")
             let before = layout
             try await toggleKeyboard()
             layout = await changedLayout(from: before)
+            // iPad: the first ctrl+space right after Spotlight opened did nothing, the next one switched (2026-11-17
+            // trace); it reads its keyboard reliably (KeyboardLayout.padLayout), so one more press is safe there
+            if layout == before && DeviceKind.isPad && !pressedAgain {
+                pressedAgain = true
+                log("type: the keyboard still reads \(before == .pinyin ? "pinyin" : "English") after ctrl+space; once more (iPad)")
+                try await toggleKeyboard()
+                layout = await changedLayout(from: before)
+            }
             if layout == before {
                 log("type: the keyboard still reads \(before == .pinyin ? "pinyin" : "English") after ctrl+space; not pressing again")
                 return .none
@@ -167,6 +176,13 @@ extension Pointer {
     func tapSearchButton() async throws -> Bool {
         guard let screen, screen.live, let jpeg = screen.frame, let image = Vision.image(jpeg) else { return false }
         guard let box = SearchPill.label(await UITreeOCR.lines(image), size: CGSize(width: image.width, height: image.height)) else {
+            // iPad: no Search pill on its Home Screen, but a swipe down in its middle opens Spotlight. cmd+space did
+            // nothing for a whole run on an iPad Air M3 (2026-11-17: both tries, then the model tapped the icon)
+            if DeviceKind.isPad {
+                log("open: cmd+space brought nothing up; swiping down on the Home Screen (iPad)")
+                try await swipe(0.5, 0.3, 0.5, 0.55, hold: false)
+                return true
+            }
             log("open: cmd+space brought nothing up and no Search button is on screen")
             return false
         }

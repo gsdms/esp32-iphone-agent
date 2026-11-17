@@ -20,13 +20,13 @@ extension AgentLoop {
 
     /// What an action did, the way a terminal shows a command's result.
     static func effect(_ s: JObject) -> String {
-        guard let changed = s["changed"]?.bool else { return "" }
+        guard let changed = s["changed"]?.bool else { return s["stale"] == .bool(true) ? staleEffect : "" }  // stale: iPad
         var out = changed ? " -> screen changed" : " -> screen did NOT change"
         let app = s["app"]?.str ?? ""
         switch s["opened"]?.str.flatMap(OpenResult.init(rawValue:)) {
         case .opened?: out += "; \(app) is open"
         case .notFound?: out += "; Spotlight lists no app named \(app)"
-            + " (the search is still on screen): open it by the name this iPhone shows, in its language"
+            + " (the search is still on screen): open it by the name this \(DeviceKind.name) shows, in its language"
         case .notOpened?: out += "; \(app) did not open (Return on its top hit did nothing):"
             + " if Spotlight still lists it, tap its icon there"
         default: break
@@ -66,14 +66,17 @@ extension AgentLoop {
 
     /// What `open` found, or what `type` could not type: a field for the step (nil for every other action).
     @discardableResult
-    func perform(_ a: JObject, aim: Bool = false) async throws -> (field: String, value: String)? {
+    func perform(_ action: JObject, aim: Bool = false) async throws -> (field: String, value: String)? {
         guard let phone else { throw DeviceError(message: "no phone") }
+        // iPad: frame to screen coordinates (PadGeometry); an iPhone has no geometry and sends the model's as they are
+        let geometry = screen?.geometry
+        let a = try geometry.map { try PadGeometry.toScreen(action, $0) } ?? action
         func p(_ k: String) -> Double { (a[k]?.double ?? 0) / 1000 }
         switch a["action"]?.str {
         case "tap": try await phone.tap(p("x"), p("y"), aim: aim || a["precise"]?.bool ?? false || missed || retaps(a))
         case "swipe": try await phone.swipe(p("x1"), p("y1"), p("x2"), p("y2"), hold: true)
         case "path": try await phone.drag(points(a).map { CGPoint(x: $0.x / 1000, y: $0.y / 1000) }, hold: true)
-        case "circle": try await phone.drag(circle(p("x"), p("y"), p("r"), aspect: screen?.aspect ?? 9 / 19.5), hold: true)
+        case "circle": try await phone.drag(circle(p("x"), p("y"), p("r"), aspect: geometry?.screenAspect ?? screen?.aspect ?? 9 / 19.5), hold: true)
         case "type":
             let text = a["text"]?.str ?? ""
             if Scripts.needsPaste(text) { return ("typed", try await pasteInstead(text)) }  // the board can't type it

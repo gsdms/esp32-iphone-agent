@@ -80,8 +80,13 @@ extension AgentLoop {
     @discardableResult
     func noteLanding() async -> CGPoint? {
         let last = steps.count - 1
-        guard last >= 0, steps[last]["action"]?.str == "tap", let x = steps[last]["x"]?.double, let y = steps[last]["y"]?.double,
-              let p = await phone?.landing(x / 1000, y / 1000) else { return nil }
+        guard last >= 0, steps[last]["action"]?.str == "tap", let x = steps[last]["x"]?.double, let y = steps[last]["y"]?.double
+        else { return nil }
+        // the step is in frame fractions, the pointer in screen fractions (they differ only on a letterboxed iPad)
+        let geometry = screen?.geometry, target = CGPoint(x: x / 1000, y: y / 1000)
+        let aim = geometry?.screenPoint(fromFrame: target) ?? target
+        guard let found = await phone?.landing(aim.x, aim.y) else { return nil }
+        let p = geometry?.framePoint(fromScreen: found) ?? found
         steps[last]["landed"] = .arr([.int(Int((p.x * 1000).rounded())), .int(Int((p.y * 1000).rounded()))])
         return p
     }

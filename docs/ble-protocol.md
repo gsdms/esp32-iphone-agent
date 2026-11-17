@@ -36,7 +36,7 @@ If older firmware explicitly rejects `reset` as an unknown command, the app send
 New:
 - `stream on|off` — continuously forward every access unit over `video` (default off).
 - `snap` — send SPS/PPS + every AU since the last IDR (the current GOP), then reply `ok`.
-- `res W H` — AirPlay resolution advertised in `/info` (default 480 1040), stored in NVS; takes effect on the next mirroring session.
+- `res W H` — AirPlay resolution advertised in `/info` (default 480 1040), stored in NVS; takes effect on the next mirroring session. An iPhone streams 718×1560 from 480 1040. An iPad fits its screen into the display (480 1040 gives only 720×500), so the app sets a 1200 1200 square: 1200×834 in landscape and 834×1200 in portrait on an 11" iPad, the black bars around it cropped off in the app; an iPhone puts a board left in a display that is not taller than wide back to 480 1040.
 - `fps N` — max fps advertised (default 5), stored in NVS.
 - `bench KB` — send KB kilobytes of filler on `video` with the `bench` flag, then reply `ok <ms>`.
 - `unpair` — erase all bonds and restart advertising.

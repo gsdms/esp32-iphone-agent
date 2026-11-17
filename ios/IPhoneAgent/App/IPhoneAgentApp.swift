@@ -61,6 +61,7 @@ struct RootView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(AppTab.settings)
         }
+        .ignoringForeignKeyboard()  // iPad: Spotlight's keyboard from a run left Start in the middle of the screen
         .alert(Text(verbatim: app.notice ?? ""), isPresented: Binding(get: { app.notice != nil }, set: { if !$0 { app.notice = nil } })) {
             Button("OK") {}
         }

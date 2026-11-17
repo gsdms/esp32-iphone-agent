@@ -3,6 +3,18 @@ import XCTest
 
 /// Rounds that change nothing check the link before the model acts again; a pointer far off target calibrates again.
 @MainActor final class LinkCheckTests: XCTestCase {
+    /// These tests check the iPhone's moves; the iPad's own tests set DeviceKind.isPad themselves (CI runs both).
+    private static var wasPad = false
+    override func setUp() {
+        super.setUp()
+        Self.wasPad = DeviceKind.isPad
+        DeviceKind.isPad = false
+    }
+    override func tearDown() {
+        DeviceKind.isPad = Self.wasPad
+        super.tearDown()
+    }
+
     /// A screen that still counts as live but whose fresh frame never comes (nil: can't tell).
     private final class StillScreen: ScreenSource {
         var live = true

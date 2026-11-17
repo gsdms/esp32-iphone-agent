@@ -119,7 +119,10 @@ extension Gestures {
     private var helpAsked = 0
     /// Connection revision of the accepted/restored look; a reconnect invalidates its actions.
     var acceptedLookLinks: Int?
-    private enum InvalidatedLook: Error { case connectionChanged }
+    /// iPad: the screen's orientation and shape when the accepted look was taken (nil on iPhone). A rotation since
+    /// then puts its coordinates somewhere else, so its actions are dropped and the model looks again.
+    var acceptedLookGeometry: ScreenGeometry?
+    private enum InvalidatedLook: Error { case connectionChanged, geometryChanged }
     enum HelpChoice { case resume, skip, stop }
     /// The run's own reasons to ask (the help panel words them for people).
     static let stepLimitReason = "step limit reached", stallReason = "the screen did not change"
@@ -170,6 +173,7 @@ extension Gestures {
         droppingChosenGesture = false
         chosenGestureDropped = false
         acceptedLookLinks = nil
+        acceptedLookGeometry = nil
         replay.restart()
         if !traceStarted { trace?.start(task: task) }
         if resuming { record(nil, ["action": .str("resumed"), "reason": .str("the run had stopped; it goes on from the screen in front now")]) }
@@ -204,6 +208,7 @@ extension Gestures {
         if running { throw DeviceError(message: "stop the agent first") }
         task = ""; plan = ""; steps = []; shots = [:]
         acceptedLookLinks = nil
+        acceptedLookGeometry = nil
     }
 
     func record(_ shot: Data? = nil, _ step: JObject) {
@@ -268,11 +273,18 @@ extension Gestures {
         return !device.connected || revision.map { device.links != $0 } == true
     }
 
+    /// iPad: the screen rotated or the mirrored shape changed since `revision` (never on iPhone: no geometry).
+    private func geometryChanged(since revision: ScreenGeometry?) -> Bool {
+        guard let revision else { return false }
+        return !revision.matches(screen?.geometry)
+    }
+
     func ask(_ role: String, _ llm: ChatModel, _ system: String, _ prompt: String,
                      temperature: Double = 0, retryTimeout: Bool = true,
                      reconnectUntil: Double? = nil) async throws -> (String, Double, Data?) {
         var prompt = prompt
         var reconnectDeadline = reconnectUntil
+        var turned = 0  // iPad: replies dropped for a rotation in this ask (never on iPhone)
         while true {
             try await gate?()
             // a stale frame (the stream broke after the last action) is fetched again, never sent
@@ -294,6 +306,7 @@ extension Gestures {
             }
             guard let screen, screen.live else { throw BlindError() }  // never let the model act blind
             let frame = screen.frame, frameAt = screen.capturedAt, started = now(), requestLinks = phone?.device.links
+            let requestGeometry = screen.geometry
             let sent = frame.map(ModelImage.forModel)  // the model's copy; the trace keeps the full frame
             // the tree of exactly the frame sent, so `tap #ID` lands on what the model saw
             var tree: UITree?
@@ -367,6 +380,14 @@ extension Gestures {
             if lastActed > 0 { rec["frame_after_action_s"] = .num(((frameAt - lastActed) * 100).rounded() / 100) }
             trace?.write(frame, kind: "llm", rec.merging(reply.diagnostics))
             try Task.checkCancellation()
+            if geometryChanged(since: requestGeometry) {
+                turned += 1
+                guard turned <= Self.turnRetries else { throw BlindError(reason: Self.turningReason) }
+                DebugLog.write("model reply discarded (\(turned) of \(Self.turnRetries)): the screen rotated or the mirrored "
+                               + "shape changed; looking again once it holds still")
+                await steadyGeometry()
+                continue
+            }
             if connectionChanged(since: requestLinks) {
                 DebugLog.write("model reply discarded: board connection changed; restoring the screen before another look")
                 acceptedLookLinks = requestLinks
@@ -374,6 +395,7 @@ extension Gestures {
                 continue
             }
             acceptedLookLinks = requestLinks
+            acceptedLookGeometry = requestGeometry
             return (answer, seconds, frame)
         }
     }
@@ -493,7 +515,8 @@ extension Gestures {
 
     /// The actor's system prompt: the original, plus an intent's checklist as hints.
     var actorPrompt: String {
-        let base = Prompts.actor + "\n" + AssistiveTouchSpots.rule + background + ToolStore.prompt(tools) + Calls.prompt(task)
+        let base = Prompts.actor + "\n" + AssistiveTouchSpots.rule(geometry: screen?.geometry) + background
+            + ToolStore.prompt(tools) + Calls.prompt(task)
         let all = hints + replay.hints
         return all.isEmpty ? base : base + "\n\nHints for this task:\n" + all.map { "- " + $0 }.joined(separator: "\n")
     }
@@ -552,6 +575,9 @@ extension Gestures {
                 guard !connectionChanged(since: acceptedLookLinks) else {
                     throw InvalidatedLook.connectionChanged
                 }
+                guard !geometryChanged(since: acceptedLookGeometry) else {
+                    throw InvalidatedLook.geometryChanged
+                }
                 onDoing?(.acting(act))  // the thought (on the first act) names the target
                 if quiet == nil { quiet = Self.motion(seen, screen?.frame) }  // the screen just before acting
                 let started = now()
@@ -595,7 +621,7 @@ extension Gestures {
                 let s = lastActed - started
                 timing.hidMs += s * 1000
                 act["act_s"] = .num((s * 100).rounded() / 100)
-                spots += pointerPath(act)
+                spots += pointerPath(act, geometry: screen?.geometry)
                 pointerAt = spots.last!
             }
             record(planned.shot, act)
@@ -603,6 +629,10 @@ extension Gestures {
             let following = i < acts.count - 1 ? acts[i + 1].act["action"]?.str : nil
             if name == "tap" && (following == "type" || following == "key" || following == "clear") {  // a missed tap never opened the field
                 timing.frameMs += await settle(ignoring: spots, busy: await still())
+                if screen?.behind == true {  // iPad: no frame shows whether the tap opened the field; look again
+                    unseen()
+                    return false
+                }
                 if !(try await tapChanged(seen, &spots, quiet: await still(), confirmed: confirmed)) {
                     verdict(false)
                     return false  // skip the rest; the actor looks again
@@ -613,6 +643,10 @@ extension Gestures {
         timing.frameMs += await settle(ignoring: spots, busy: await still())
         // feedback for the next round (a notebook action alone moves nothing: no verdict)
         guard !Actions.notebookActions.contains(steps.last?["action"]?.str ?? "") else { return false }
+        if screen?.behind == true {  // iPad: the frame is from before the action; "did NOT change" would be a guess
+            unseen()
+            return false
+        }
         let (frame, mask, moving) = (screen?.frame, spots, await still())
         let changed: Bool
         if steps.last?["action"]?.str == "tap" { changed = try await tapChanged(seen, &spots, quiet: moving, confirmed: confirmed) }
@@ -627,7 +661,8 @@ extension Gestures {
         guard let actor else { throw LLMError(message: "no actor model") }
         // actions and their effect only: echoing earlier thoughts makes the model repeat them instead of looking
         let hidden: Set<String> = ["t", "plan", "plan_zh", "think_s", "act_s", "shot", "thought", "thought_zh", "changed",
-                                   "replay", "jev", "planner", "landed", "opened", "typed", "again", "demo", "sure", "cached"]
+                                   "replay", "jev", "planner", "landed", "opened", "typed", "again", "demo", "sure", "cached",
+                                   "stale"]
         takeSteering()
         let history = steps.suffix(8).filter {
             $0["plan"] == nil && $0["action"]?.str != Self.steerAction && $0["action"]?.str != Self.checkpointAction
@@ -637,8 +672,9 @@ extension Gestures {
         let collected = notebook.isEmpty ? "" : "\n\n" + notebook.summary()
             + (lookedUp.isEmpty ? "" : "\n\nLooked up:\n" + lookedUp.suffix(3).joined(separator: "\n\n"))
         let sound = heard?() ?? ""
-        let prompt = "Goal: \(task)\(steeredSection)\n\nPlan:\n\(plan.isEmpty ? "(none yet: write one)" : plan)\n\nRecent actions:\n"
+        var prompt = "Goal: \(task)\(steeredSection)\n\nPlan:\n\(plan.isEmpty ? "(none yet: write one)" : plan)\n\nRecent actions:\n"
             + (history.isEmpty ? "(none)" : history) + collected + (sound.isEmpty ? "" : "\n\n" + sound) + "\n\nNext action?"
+        if steps.last?["stale"] == .bool(true) { prompt += Self.staleNote }  // iPad only: no frame after the last action
         var reply = ""
         let checkpoint = checkpointModel == nil ? nil : checkpoints.reason(steps)
         for attempt in 0..<3 {  // retry unparseable replies, a little less deterministically
